@@ -2,9 +2,8 @@ import React, { useState, useMemo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useAppContext } from '../context/AppContext';
 import { ICONS } from '../data/mock';
-import { Sparkles, Clock, User, Phone, Loader2, X } from 'lucide-react';
+import { Sparkles, Clock, User, Phone, Loader2, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Service } from '../types';
-import Calendar from '../components/Calendar';
 import ProfilePageSkeleton from '../components/ProfilePageSkeleton';
 
 // Adiciona uma função para exibir notificações de confirmação de agendamento.
@@ -35,8 +34,10 @@ const ProfilePage: React.FC = () => {
   const professional = allProfessionals.find(p => p.id === Number(professionalId));
   
   const [selectedService, setSelectedService] = useState<Service | null>(null);
+  const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = useState<Date | null>(null);
+
   const [clientName, setClientName] = useState('');
   const [clientWhatsapp, setClientWhatsapp] = useState('+55');
   const [validationError, setValidationError] = useState('');
@@ -46,52 +47,72 @@ const ProfilePage: React.FC = () => {
   const professionalAppointments = useMemo(() => {
     return appointments.filter(apt => apt.professionalId === Number(professionalId));
   }, [appointments, professionalId]);
-
-  const timeSlots = useMemo(() => {
-    if (!selectedDate || !professional || !selectedService) return [];
-
-    const dayOfWeek = selectedDate.getDay();
-    // FIX: Removed unnecessary type assertion as `professional.availability` is now correctly typed.
-    const dayAvailability = professional.availability[dayOfWeek];
-    if (!dayAvailability || dayAvailability.length === 0) return [];
-
+  
+  const getSlotsForDate = (date: Date, service: Service) => {
     const slots: { time: Date, isAvailable: boolean }[] = [];
-    const now = new Date();
-    const interval = professional.bookingSlotInterval || 15;
+    if (!professional) return slots;
 
-    dayAvailability.forEach(timeBlock => {
-      const startHour = Math.floor(timeBlock.start);
-      const startMinute = (timeBlock.start % 1) * 60;
-      const blockStartTime = new Date(selectedDate);
-      blockStartTime.setHours(startHour, startMinute, 0, 0);
+    date.setHours(0, 0, 0, 0);
+    const dayOfWeek = date.getDay();
+    const dayAvailability = professional.availability[dayOfWeek];
 
-      const endHour = Math.floor(timeBlock.end);
-      const endMinute = (timeBlock.end % 1) * 60;
-      const blockEndTime = new Date(selectedDate);
-      blockEndTime.setHours(endHour, endMinute, 0, 0);
+    if (dayAvailability?.length > 0) {
+        const now = new Date();
+        const interval = professional.bookingSlotInterval || 15;
 
-      let currentTime = blockStartTime;
+        dayAvailability.forEach(timeBlock => {
+            const startHour = Math.floor(timeBlock.start);
+            const startMinute = (timeBlock.start % 1) * 60;
+            const blockStartTime = new Date(date);
+            blockStartTime.setHours(startHour, startMinute);
 
-      while (currentTime < blockEndTime) {
-        const slotTime = new Date(currentTime);
-        
-        if (slotTime > now) {
-          const slotEndTime = new Date(slotTime.getTime() + selectedService.duration * 60000);
-            
-          if (slotEndTime <= blockEndTime) {
-            const isOverlapping = professionalAppointments.some(apt => 
-              (slotTime < apt.endTime && slotEndTime > apt.startTime)
-            );
-            slots.push({ time: slotTime, isAvailable: !isOverlapping });
-          }
-        }
-        currentTime = new Date(currentTime.getTime() + interval * 60000);
+            const endHour = Math.floor(timeBlock.end);
+            const endMinute = (timeBlock.end % 1) * 60;
+            const blockEndTime = new Date(date);
+            blockEndTime.setHours(endHour, endMinute);
+
+            let currentTime = blockStartTime;
+            while (currentTime < blockEndTime) {
+                const slotTime = new Date(currentTime);
+                if (slotTime > now) {
+                    const slotEndTime = new Date(slotTime.getTime() + service.duration * 60000);
+                    if (slotEndTime <= blockEndTime) {
+                        const isOverlapping = professionalAppointments.some(apt =>
+                            (slotTime < apt.endTime && slotEndTime > apt.startTime)
+                        );
+                        slots.push({ time: slotTime, isAvailable: !isOverlapping });
+                    }
+                }
+                currentTime = new Date(currentTime.getTime() + interval * 60000);
+            }
+        });
+    }
+    return Array.from(new Map(slots.map(s => [s.time.getTime(), s])).values()).sort((a, b) => a.time.getTime() - b.time.getTime());
+  };
+
+
+  const availableDaysInMonth = useMemo(() => {
+    const availableDays = new Set<string>();
+    if (!professional || !selectedService) return availableDays;
+    
+    const year = currentMonth.getFullYear();
+    const month = currentMonth.getMonth();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+    for (let i = 1; i <= daysInMonth; i++) {
+      const date = new Date(year, month, i);
+      const slots = getSlotsForDate(date, selectedService);
+      if (slots.some(slot => slot.isAvailable)) {
+        availableDays.add(date.toDateString());
       }
-    });
+    }
+    return availableDays;
+  }, [professional, selectedService, currentMonth, professionalAppointments]);
 
-    const uniqueSlots = Array.from(new Map(slots.map(s => [s.time.getTime(), s])).values());
-    return uniqueSlots.sort((a, b) => a.time.getTime() - b.time.getTime());
-  }, [selectedDate, professional, selectedService, professionalAppointments]);
+  const slotsForSelectedDate = useMemo(() => {
+      if (!selectedDate || !selectedService) return [];
+      return getSlotsForDate(selectedDate, selectedService);
+  }, [selectedDate, selectedService, professionalAppointments]);
 
 
   if (loading && !professional) {
@@ -113,10 +134,10 @@ const ProfilePage: React.FC = () => {
 
   const handleServiceSelect = (service: Service) => {
     setSelectedService(service);
-    setSelectedTime(null);
     setSelectedDate(null);
+    setSelectedTime(null);
   };
-
+  
   const handleDateSelect = (date: Date) => {
     setSelectedDate(date);
     setSelectedTime(null);
@@ -131,6 +152,74 @@ const ProfilePage: React.FC = () => {
   const handleCloseModal = () => {
     setIsConfirmationModalOpen(false);
     setSelectedTime(null);
+  };
+
+  const changeMonth = (amount: number) => {
+    setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth() + amount, 1));
+    setSelectedDate(null);
+    setSelectedTime(null);
+  };
+
+  const renderCalendar = () => {
+    const startOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
+    const endOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0);
+    const startDayOfWeek = startOfMonth.getDay();
+    const daysInMonth = endOfMonth.getDate();
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const days = [];
+    for (let i = 0; i < startDayOfWeek; i++) {
+        days.push(<div key={`empty-start-${i}`} className="border-t border-l bg-gray-50 h-14"></div>);
+    }
+
+    for (let i = 1; i <= daysInMonth; i++) {
+        const dayDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), i);
+        const isAvailable = availableDaysInMonth.has(dayDate.toDateString());
+        const isPast = dayDate < today;
+        const isDisabled = isPast || !isAvailable;
+        const isSelected = selectedDate?.toDateString() === dayDate.toDateString();
+        const isToday = today.toDateString() === dayDate.toDateString();
+
+        days.push(
+            <button
+                key={i}
+                onClick={() => handleDateSelect(dayDate)}
+                disabled={isDisabled}
+                className={`p-1 border-t border-l h-14 flex items-center justify-center text-center transition-colors focus:outline-none focus:ring-2 focus:ring-primary/50 relative ${
+                    isDisabled ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                    : isSelected ? 'bg-primary text-white font-bold'
+                    : 'hover:bg-primary/10'
+                }`}
+            >
+                <span className={`w-8 h-8 flex items-center justify-center rounded-full ${isToday && !isSelected ? 'border-2 border-secondary' : ''}`}>{i}</span>
+                {isAvailable && !isPast && <div className="absolute bottom-1.5 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-secondary rounded-full"></div>}
+            </button>
+        );
+    }
+    // Add closing border
+    for (let i = 0; i < days.length; i++) {
+        if((i + 1) % 7 === 0) days[i].props.className += ' border-r';
+    }
+    days[days.length-1].props.className += ' border-b';
+     for (let i = days.length - (days.length % 7); i < days.length; i++) {
+         if (i < 0) continue;
+         days[i].props.className += ' border-b';
+     }
+
+    return (
+        <div className="bg-white p-4 rounded-lg shadow-sm border">
+            <div className="flex justify-between items-center mb-4">
+                <button onClick={() => changeMonth(-1)} className="p-2 rounded-full hover:bg-gray-200" aria-label="Mês anterior"> <ChevronLeft /> </button>
+                <h2 className="text-lg font-semibold text-dark capitalize"> {currentMonth.toLocaleString('pt-BR', { month: 'long', year: 'numeric' })} </h2>
+                <button onClick={() => changeMonth(1)} className="p-2 rounded-full hover:bg-gray-200" aria-label="Próximo mês"> <ChevronRight /> </button>
+            </div>
+            <div className="grid grid-cols-7 text-sm text-center text-gray-500 mb-2 font-medium">
+                <div>Dom</div><div>Seg</div><div>Ter</div><div>Qua</div><div>Qui</div><div>Sex</div><div>Sáb</div>
+            </div>
+            <div className="grid grid-cols-7">{days}</div>
+        </div>
+    );
   };
   
   const handleConfirmBooking = async () => {
@@ -200,12 +289,12 @@ const ProfilePage: React.FC = () => {
         
         {/* Booking Flow Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 pt-8">
-          {/* Left Column: Services & Calendar */}
+          {/* Left Column: Services */}
           <div className="space-y-6">
             <div>
                 <h2 className="text-2xl font-bold mb-3">1. Selecione um Serviço</h2>
                 {professionalServices.length > 0 ? (
-                  <div className="space-y-3">
+                  <div className="space-y-3 max-h-[600px] overflow-y-auto pr-2">
                     {professionalServices.map(service => {
                       const IconComponent = ICONS[service.icon] || Sparkles;
                       const isSelected = selectedService?.id === service.id;
@@ -235,58 +324,43 @@ const ProfilePage: React.FC = () => {
                   <p className="text-center text-gray-500 bg-light p-4 rounded-md">Nenhum serviço disponível no momento.</p>
                 )}
             </div>
-             {selectedService && (
-                <div className="animate-fade-in">
-                    <h2 className="text-2xl font-bold mb-3">2. Escolha a Data</h2>
-                    <Calendar 
-                        selectedDate={selectedDate}
-                        onDateSelect={handleDateSelect}
-                        // FIX: Removed unnecessary type assertion as the prop type is now correctly inferred.
-                        availability={professional.availability}
-                    />
-                </div>
-             )}
           </div>
 
-          {/* Right Column: Time */}
-          <div>
-            {!selectedService ? (
-              <div className="flex items-center justify-center h-full bg-light rounded-lg p-8">
-                <p className="text-gray-500 text-center text-lg">Selecione um serviço para ver os horários disponíveis.</p>
+          {/* Right Column: Date & Time */}
+          <div className="space-y-6">
+            {selectedService ? (
+              <div className="animate-fade-in">
+                  <h2 className="text-2xl font-bold mb-3">2. Escolha a Data e Horário</h2>
+                  {renderCalendar()}
+
+                  {selectedDate && (
+                      <div className="mt-4 animate-fade-in">
+                          <h3 className="font-semibold text-gray-800 capitalize mb-2">Horários para {selectedDate.toLocaleDateString('pt-BR', { weekday: 'long', day:'2-digit', month: 'long' })}</h3>
+                          <div className="flex flex-wrap gap-2 py-2"> 
+                              {slotsForSelectedDate.length > 0 ? slotsForSelectedDate.map(slot => (
+                                  <button
+                                      key={slot.time.getTime()}
+                                      onClick={() => handleTimeSelect(slot.time)}
+                                      disabled={!slot.isAvailable}
+                                      className={`py-2 px-4 rounded-lg transition-colors text-sm font-semibold flex-shrink-0 ${
+                                          !slot.isAvailable
+                                          ? 'bg-gray-200 text-gray-400 cursor-not-allowed line-through'
+                                          : 'bg-white text-primary border border-primary/50 hover:bg-primary/10'
+                                      }`}
+                                  >
+                                      {slot.time.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                                  </button>
+                              )) : (
+                                <p className="text-sm text-gray-500">Nenhum horário disponível para este dia.</p>
+                              )}
+                          </div>
+                      </div>
+                  )}
               </div>
-            ) : !selectedDate ? (
-                 <div className="flex items-center justify-center h-full bg-light rounded-lg p-8 animate-fade-in">
-                    <p className="text-gray-500 text-center text-lg">Selecione uma data no calendário para ver os horários.</p>
+          ) : (
+                <div className="flex items-center justify-center h-full bg-light rounded-lg p-8">
+                    <p className="text-gray-500 text-center text-lg">Selecione um serviço para ver os horários disponíveis.</p>
                 </div>
-            ) : (
-                 <div className="animate-fade-in">
-                    <h2 className="text-2xl font-bold mb-3">3. Escolha o Horário</h2>
-                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 max-h-[400px] overflow-y-auto p-3 bg-light rounded-lg">
-                      {timeSlots.length > 0 && timeSlots.some(s => s.isAvailable) ? (
-                        timeSlots.map(slot => {
-                          const isSelected = selectedTime?.getTime() === slot.time.getTime();
-                          return (
-                            <button
-                              key={slot.time.getTime()}
-                              onClick={() => slot.isAvailable && handleTimeSelect(slot.time)}
-                              disabled={!slot.isAvailable}
-                              className={`p-3 rounded-lg transition-colors text-sm font-medium ${
-                                  !slot.isAvailable 
-                                  ? 'bg-gray-300 text-gray-500 line-through cursor-not-allowed'
-                                  : isSelected
-                                  ? 'bg-primary text-white ring-2 ring-offset-1 ring-primary'
-                                  : 'bg-secondary text-white hover:bg-pink-600'
-                              }`}
-                            >
-                              {slot.time.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                            </button>
-                          )
-                        })
-                      ) : (
-                        <p className="col-span-full text-gray-500 text-center py-4">Nenhum horário disponível para este dia. Tente outra data.</p>
-                      )}
-                    </div>
-                 </div>
             )}
           </div>
         </div>

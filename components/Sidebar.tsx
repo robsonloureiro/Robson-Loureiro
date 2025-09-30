@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { useAppContext } from '../context/AppContext';
 import { supabase } from '../lib/supabaseClient';
-import { LayoutDashboard, CalendarDays, Users, Scissors, BarChart3, MessageSquare, LogOut, Sparkles } from 'lucide-react';
+import { Home, CalendarDays, Users, Scissors, BarChart3, MessageSquare, LogOut, Sparkles, User } from 'lucide-react';
 
 const Sidebar: React.FC = () => {
   const { profile, appointments, services } = useAppContext();
@@ -14,15 +14,16 @@ const Sidebar: React.FC = () => {
   };
 
   const navItems = [
-    { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+    { name: 'Início', href: '/dashboard', icon: Home },
     { name: 'Agendamentos', href: '/dashboard/appointments', icon: CalendarDays },
     { name: 'Clientes', href: '/dashboard/clients', icon: Users },
     { name: 'Serviços', href: '/dashboard/services', icon: Scissors },
+    { name: 'Perfil', href: '/dashboard/profile', icon: User },
     { name: 'Estatísticas', href: '/dashboard/stats', icon: BarChart3 },
     { name: 'Suporte', href: '/dashboard/support', icon: MessageSquare },
   ];
 
-  const enabledPages = ['Dashboard', 'Agendamentos', 'Clientes', 'Serviços', 'Estatísticas', 'Suporte']; // Array de páginas ativas
+  const enabledPages = ['Início', 'Agendamentos', 'Clientes', 'Serviços', 'Perfil', 'Estatísticas', 'Suporte']; // Array de páginas ativas
 
   const dailyStats = useMemo(() => {
       const today = new Date();

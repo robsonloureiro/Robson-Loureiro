@@ -1,5 +1,6 @@
 
 
+
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { 
@@ -147,8 +148,8 @@ const HomePage: React.FC = () => {
                     <Link to="/auth" className="w-full sm:w-auto bg-primary text-white font-semibold py-3 px-8 rounded-lg hover:bg-violet-700 transition-colors shadow-lg flex items-center justify-center gap-2">
                         <CalendarPlus className="w-5 h-5"/> Começar Gratuitamente
                     </Link>
-                    <Link to="#" className="w-full sm:w-auto bg-white border border-gray-300 text-gray-700 font-semibold py-3 px-8 rounded-lg hover:bg-gray-100 transition-colors flex items-center justify-center gap-2">
-                        <User className="w-5 h-5" /> Ver Demonstração
+                    <Link to="/professionals" className="w-full sm:w-auto bg-white border border-gray-300 text-gray-700 font-semibold py-3 px-8 rounded-lg hover:bg-gray-100 transition-colors flex items-center justify-center gap-2">
+                        <Users2 className="w-5 h-5" /> Encontrar Profissionais
                     </Link>
                 </div>
                  <div className="mt-16 flex justify-center lg:justify-start gap-8 sm:gap-12">

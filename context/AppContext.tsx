@@ -1,4 +1,5 @@
-import React, { createContext, useState, useContext, ReactNode, useCallback, useEffect } from 'react';
+
+import React, { createContext, useState, useContext, ReactNode, useCallback, useEffect, useRef } from 'react';
 import { Appointment, Professional, Service, AppointmentRow, ProfessionalUpdate, ProfessionalInsert } from '../types';
 import { supabase } from '../lib/supabaseClient';
 import { Session, User } from '@supabase/supabase-js';
@@ -66,6 +67,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [services, setServices] = useState<Service[]>([]);
   const [allProfessionals, setAllProfessionals] = useState<Professional[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Criar uma ref para manter o valor mais recente do perfil e evitar closures obsoletas.
+  const profileRef = useRef(profile);
+  useEffect(() => {
+    profileRef.current = profile;
+  }, [profile]);
 
   // Lida com o estado de autenticação e notificações
   useEffect(() => {
@@ -208,8 +215,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }, []);
 
   const updateProfile = useCallback(async (updatedProfileData: ProfessionalUpdate) => {
-    if (!profile) return;
-    const { id } = profile;
+    const currentProfile = profileRef.current;
+    if (!currentProfile) return;
+    const { id } = currentProfile;
     const { data, error } = await supabase
         .from('professionals')
         .update(updatedProfileData)
@@ -225,10 +233,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
        setProfile(data);
        setAllProfessionals(prev => prev.map(p => p.id === id ? data : p));
     }
-  }, [profile]);
+  }, []);
 
   const addService = useCallback(async (newServiceData: Omit<Service, 'id' | 'created_at'>) => {
-    if (!profile) return;
+    const currentProfile = profileRef.current;
+    if (!currentProfile) return;
 
     // 1. Insert the new service
     const { data: newService, error: serviceError } = await supabase
@@ -244,11 +253,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     if (!newService) return;
 
     // 2. Update the professional's services array
-    const updatedServicesIds = [...profile.services, newService.id];
+    const updatedServicesIds = [...currentProfile.services, newService.id];
     const { data: updatedProfessional, error: profError } = await supabase
         .from('professionals')
         .update({ services: updatedServicesIds })
-        .eq('id', profile.id)
+        .eq('id', currentProfile.id)
         .select(professionalColumns)
         .single();
     
@@ -262,7 +271,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     if(updatedProfessional) {
         setProfile(updatedProfessional);
     }
-  }, [profile]);
+  }, []);
 
   const updateService = useCallback(async (updatedService: Service) => {
     const { id, created_at, ...updateData } = updatedService;
@@ -283,14 +292,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, []);
 
   const deleteService = useCallback(async (serviceId: number) => {
-      if (!profile) return;
+      const currentProfile = profileRef.current;
+      if (!currentProfile) return;
 
       // 1. Remove service from the professional's services array and refetch profile
-      const updatedServicesIds = profile.services.filter(id => id !== serviceId);
+      const updatedServicesIds = currentProfile.services.filter(id => id !== serviceId);
       const { data: updatedProfessional, error: profError } = await supabase
             .from('professionals')
             .update({ services: updatedServicesIds })
-            .eq('id', profile.id)
+            .eq('id', currentProfile.id)
             .select(professionalColumns)
             .single();
 
@@ -312,7 +322,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       if (updatedProfessional) {
           setProfile(updatedProfessional);
       }
-  }, [profile]);
+  }, []);
 
 
   return (

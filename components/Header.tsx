@@ -23,6 +23,7 @@ const Header: React.FC = () => {
           <span className="text-dark">BeautyBook</span>
         </Link>
         <nav className="hidden md:flex items-center gap-8 text-sm font-medium">
+          <Link to="/professionals" className="text-gray-600 hover:text-primary">Profissionais</Link>
           <Link to="#" className="text-gray-600 hover:text-primary">Recursos</Link>
           <Link to="#" className="text-gray-600 hover:text-primary">Planos</Link>
           <Link to="#" className="text-gray-600 hover:text-primary">Contato</Link>

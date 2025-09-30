@@ -1,4 +1,5 @@
 
+
 import React, { useEffect } from 'react';
 import { HashRouter, Route, Routes, useLocation, Outlet } from 'react-router-dom';
 import { AppProvider } from './context/AppContext';
@@ -6,7 +7,7 @@ import Header from './components/Header';
 import Footer from './components/Footer';
 import HomePage from './pages/HomePage';
 import ConfirmationPage from './pages/ConfirmationPage';
-import DashboardPage from './pages/DashboardPage';
+import InicioPage from './pages/DashboardPage';
 import ProfilePage from './pages/ProfilePage';
 import AvailabilityPage from './pages/AvailabilityPage';
 import AuthPage from './pages/AuthPage';
@@ -18,6 +19,8 @@ import ClientsPage from './pages/ClientsPage';
 import StatisticsPage from './pages/StatisticsPage';
 import SupportPage from './pages/SupportPage';
 import { initOneSignal } from './lib/oneSignal';
+import ProfileSettingsPage from './pages/ProfileSettingsPage';
+import AllProfessionalsPage from './pages/AllProfessionalsPage';
 
 const PublicLayout: React.FC = () => {
   const location = useLocation();
@@ -47,6 +50,7 @@ function App() {
           <Route element={<PublicLayout />}>
             <Route path="/" element={<HomePage />} />
             <Route path="/auth" element={<AuthPage />} />
+            <Route path="/professionals" element={<AllProfessionalsPage />} />
             <Route path="/profile/:professionalId" element={<ProfilePage />} />
             <Route path="/confirmation" element={<ConfirmationPage />} />
           </Route>
@@ -60,7 +64,8 @@ function App() {
               </ProtectedRoute>
             }
           >
-            <Route index element={<DashboardPage />} />
+            <Route index element={<InicioPage />} />
+            <Route path="profile" element={<ProfileSettingsPage />} />
             <Route path="availability" element={<AvailabilityPage />} />
             <Route path="services" element={<ServicesPage />} />
             <Route path="appointments" element={<AppointmentsPage />} />
